@@ -3,3 +3,10 @@
 
 // import normalize
 @import "normalize-scss/_normalize.scss";
+
+$background-color: #1f1f34;
+
+
+body {
+  background: $background-color;
+}
