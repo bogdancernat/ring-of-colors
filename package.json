@@ -1,0 +1,25 @@
+{
+  "name": "spinning-loader",
+  "version": "0.0.1",
+  "description": "Spinning CSS loader",
+  "main": "app/index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bogdancernat/spinning-loader.git"
+  },
+  "author": "Bogdan Cernat",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bogdancernat/spinning-loader/issues"
+  },
+  "homepage": "https://github.com/bogdancernat/spinning-loader#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "browser-sync": "^2.12.3",
+    "gulp": "^3.9.1",
+    "gulp-sass": "^2.3.1"
+  }
+}
