@@ -18,25 +18,25 @@ var app = (function (root) {
   , center      = { x: 0, y: 0 }
   , play        = true
   , pixelRatios = {}
-  , arcConfig = {
+  , arcConfig   = {
     maxArcLength: 270,
     minArcLength: 0,
     distanceFromCenter: 0,
-    easing: root.tb.easing.easeInOutQuint,
-    baseGrowthRate: 0.55,
-    baseGrowthValue: 3,
-    animationDuration: 1500, // in ms
-    distanceFromMargin: 0
+    easing: root.tb.easing.easeInOutCubic,
+    animationDuration: 1000, // in ms
+    distanceFromMargin: 0,
+    maxRingRotation: 30,
   }
   , arcState = {
     startAngle: 270,
     arcLength: arcConfig.minArcLength,
     growing: true,
     startTime: undefined, // in ms
-    growthRate: arcConfig.baseGrowthRate,
-    totalArcSegmentUnits: 0
+    totalArcSegmentUnits: 0,
+    currentRingRotation: 0
   }
-  , arcSegments = [];
+  , arcSegments = []
+  ;
 
 
   x.ignite = function () {
@@ -54,7 +54,6 @@ var app = (function (root) {
 
     arcState.startTime = new Date().getTime();
     x.animate();
-    // draw();
   };
   
   x.play = function () {
@@ -115,51 +114,59 @@ var app = (function (root) {
     var now = new Date().getTime()
     , timeEllapsed = now - arcState.startTime
     , timeProgress = timeEllapsed / arcConfig.animationDuration
+    , arcLengthProgress
+    , arcLengthUpdated
     ;
 
     if (!arcState.growing) {
-      timeProgress = 1 - timeProgress;
+      arcLengthProgress = arcConfig.easing(1 - timeProgress);
+    } else {
+      arcLengthProgress = arcConfig.easing(timeProgress);
+    }
+    
+    if (arcLengthProgress < 0) {
+      arcLengthProgress = 0;
     }
 
-    var arcLengthProgress = arcConfig.easing(timeProgress);
-    
-
-    var newArcLength = arcLengthProgress * arcConfig.maxArcLength;
-
+    arcLengthUpdated = arcLengthProgress * arcConfig.maxArcLength;
 
     if (!arcState.growing) {
       // make the end of the arc stay still
-      arcState.startAngle = (arcState.startAngle + arcState.arcLength - newArcLength) % 360;
+      arcState.startAngle = arcState.startAngle + arcState.arcLength - arcLengthUpdated;
     }
     
-    arcState.arcLength = newArcLength;
+    // make ring rotatate a bit while it changes it's arc length
+    arcState.startAngle = (arcState.startAngle + timeProgress * arcConfig.maxRingRotation - arcState.currentRingRotation) % 360;
+    arcState.currentRingRotation = timeProgress * arcConfig.maxRingRotation;
+    
+    arcState.arcLength = arcLengthUpdated;
 
     if (arcState.arcLength >= arcConfig.maxArcLength) {
-      // arcState.growthRate = arcConfig.baseGrowthRate;
-      arcState.growing = false;
+      arcState.growing   = false;
       arcState.startTime = new Date().getTime();
+      arcState.currentRingRotation = 0;
     }
 
     if (arcState.arcLength <= arcConfig.minArcLength) {
-      // arcState.growthRate = arcConfig.baseGrowthRate;
-      arcState.arcLength  = arcConfig.minArcLength;
-      arcState.growing    = true;
+      arcState.arcLength = arcConfig.minArcLength;
+      arcState.growing   = true;
       arcState.startTime = new Date().getTime();
+      arcState.currentRingRotation = 0;
     }
   }
 
   function draw() {
-    var segmentCount = arcSegments.length;
-    var arcSegment;
-    var arcSegmentStartAngle = arcState.startAngle;
-    var arcSegmentAngleSize;
-    var arcSegmentWidthUnitSize = arcState.arcLength / arcState.totalArcSegmentUnits;
-
+    var segmentCount          = arcSegments.length
+    , arcSegment
+    , arcSegmentStartAngle    = arcState.startAngle
+    , arcSegmentAngleSize
+    , arcSegmentWidthUnitSize = arcState.arcLength / arcState.totalArcSegmentUnits
+    ;
+    
     clearCanvas();
 
     for (var i = 0; i < segmentCount; i++) {
-      arcSegment = arcSegments[i];
-
+      arcSegment          = arcSegments[i];
       arcSegmentAngleSize = arcSegment.sizeUnits * arcSegmentWidthUnitSize;
 
       drawArcSegment(arcConfig.distanceFromCenter,
@@ -176,7 +183,9 @@ var app = (function (root) {
   
   
   function drawArcSegment(distanceFromCenter, thickness, angleToStartFrom, angleSpread, color) {
-    var internalCircle = {}, outerCircle = {};
+    var internalCircle = {}
+    , outerCircle      = {}
+    ;
 
     var targetAngle   = angleSpread === 360 ? angleToStartFrom - 1 : (angleToStartFrom + angleSpread) % 360
     , drawEndPoints   = false
@@ -222,7 +231,7 @@ var app = (function (root) {
   }
 
   function clearCanvas() {
-    colors.background.setAlpha(0.3);
+    colors.background.setAlpha(0.9);
     context.fillStyle = colors.background.toRgbString();
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
