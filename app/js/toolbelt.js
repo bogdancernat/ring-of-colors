@@ -35,6 +35,29 @@
     return zeroIndex?days[month]:days[month-1];    
     
   };
+  
+  belt.fiboFromPosition = function (pos) {
+    // pos starting with 0;
+    var fib = [1, 2], count = 2;
+    var currentFiboValue;
+
+    if (pos === 0 || pos === 1) {
+      return fib[pos];
+    } else {
+      while (true) {
+        currentFiboValue = fib[0] + fib[1];
+        fib[0] = fib[1];
+        fib[1] = currentFiboValue;
+        
+        count++;
+
+        if (count === pos + 1) {
+          return currentFiboValue;
+        }
+      }
+    }
+
+  };
 
   belt.getPixelRatios = function (context) {
     var devicePixelRatio = window.devicePixelRatio || 1;

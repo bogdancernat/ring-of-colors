@@ -18,32 +18,37 @@ var app = (function (root) {
   , center      = { x: 0, y: 0 }
   , play        = true
   , pixelRatios = {}
-  , arcAspect = {
-    distFromCenter: 0,
-    width: 0,
-    easing: root.tb.easing.easeOutQuart,
-    baseGrowthRate: 0.9,
-    currentGrowthRate: undefined,
-    currentArcSpread: 0,
-    rootAngle: 270,
-    growthAngleSwitch: 270,
-    distFromMargin: 0,
-    grow: true
+  , arcConfig = {
+    maxArcLength: 270,
+    minArcLength: 20,
+    distanceFromCenter: 0,
+    easing: root.tb.easing.easeInOutQuint,
+    baseGrowthRate: 0.55,
+    baseGrowthValue: 3,
+    distanceFromMargin: 0
   }
-  , arcs = [];
+  , arcState = {
+    startAngle: 270,
+    arcLength: 0,
+    growing: true,
+    growthRate: arcConfig.baseGrowthRate,
+    totalArcSegmentUnits: 0
+  }
+  , arcSegments = [];
+
 
   x.ignite = function () {
     canvas  = document.querySelector('#spinner-wrapper');
     context = canvas.getContext('2d');
     this.updateSizes();
 
-    addArc(0, colors.darkerBlue);
-    addArc(0, colors.blue);
-    addArc(0, colors.purple);
-    addArc(0, colors.red);
-    addArc(0, colors.orange);
-    addArc(0, colors.yellow);
-    addArc(0, colors.yellowLighter);
+    addArcSegment(colors.darkerBlue);
+    addArcSegment(colors.blue);
+    addArcSegment(colors.purple);
+    addArcSegment(colors.red);
+    addArcSegment(colors.orange);
+    addArcSegment(colors.yellow);
+    addArcSegment(colors.yellowLighter);
 
     x.animate();
     // draw();
@@ -80,11 +85,9 @@ var app = (function (root) {
     
     diameter = canvas.width < canvas.height ? canvas.width : canvas.height;
     
-    arcAspect.distFromMargin = 20 / 100 * (diameter / 2);
-    arcAspect.width          = 60 / 100 * (diameter / 2) - arcAspect.distFromMargin;
-    arcAspect.distFromCenter = (diameter / 2) - arcAspect.width - arcAspect.distFromMargin;
-
-    draw();
+    arcConfig.distanceFromMargin = 20 / 100 * (diameter / 2);
+    arcConfig.thickness          = 60 / 100 * (diameter / 2) - arcConfig.distanceFromMargin;
+    arcConfig.distanceFromCenter = (diameter / 2) - arcConfig.thickness - arcConfig.distanceFromMargin;
   };
   
   x.animate = function () {
@@ -95,102 +98,93 @@ var app = (function (root) {
     }
   };
   
-  function addArc(spread, color){
-    arcs.push({
-      angleSpread: spread,
+  function addArcSegment(color){
+    arcSegments.push({
+      angleSpread: 0,
+      sizeUnits: root.tb.fiboFromPosition(arcSegments.length),
       color: color.toRgbString(),
     });
+
+    arcState.totalArcSegmentUnits += arcSegments[arcSegments.length - 1].sizeUnits;
   }
 
-  function updateArcs() {
-    if (arcAspect.currentGrowthRate === undefined) {
-      arcAspect.currentGrowthRate = arcAspect.baseGrowthRate;
-    }
- 
-    var totalSpreadChange = 0;
-    var growValue = 0;
-
-    if (arcAspect.currentArcSpread > arcAspect.growthAngleSwitch) {
-      arcAspect.grow = false;
-
-      setTimeout(function () {
-        play = false;
-      }, 1000);
+  function updateArc() {
+    if (arcState.growing) {
+      arcState.arcLength += arcConfig.baseGrowthValue + arcState.growthRate;
+    } else {
+      arcState.arcLength -= arcConfig.baseGrowthValue + arcState.growthRate;
+      arcState.startAngle = (arcState.startAngle + arcConfig.baseGrowthValue + arcState.growthRate) % 360;
     }
 
-    if (arcAspect.currentArcSpread < 5) {
-      arcAspect.grow = true;
-      arcAspect.currentGrowthRate = arcAspect.baseGrowthRate;
+    if (arcState.arcLength > arcConfig.maxArcLength) {
+      arcState.growthRate = arcConfig.baseGrowthRate;
+      arcState.growing = false;
     }
 
-    growValue = arcAspect.currentGrowthRate;
-    arcAspect.currentArcSpread = 0;
-
-    if (!arcAspect.grow) {
-      growValue *= -1;
+    if (arcState.arcLength < arcConfig.minArcLength) {
+      arcState.growthRate = arcConfig.baseGrowthRate;
+      arcState.arcLength  = arcConfig.minArcLength;
+      arcState.growing    = true;
     }
 
-    for (var i = arcs.length - 1; i >= 0; i--) {
-      arcs[i].angleSpread += growValue * (i + 1);
-      totalSpreadChange += growValue * (i + 1);
-
-      if (arcs[i].angleSpread < 0) {
-        arcs[i].angleSpread = 0;
-      }
-
-      arcAspect.currentArcSpread += arcs[i].angleSpread;
-    }
-
-    if ((arcAspect.grow && arcAspect.currentArcSpread > 0.7 * arcAspect.growthAngleSwitch) || !arcAspect.grow) {
-      arcAspect.rootAngle = (arcAspect.rootAngle + Math.abs(totalSpreadChange)) % 360;
-    }
-    // update growth rate
-    arcAspect.currentGrowthRate = arcAspect.easing(arcAspect.currentGrowthRate) / 3;
+    arcState.growthRate = arcConfig.easing(arcState.growthRate);
   }
 
   function draw() {
-    var arc;
-    var currentRootAngle = arcAspect.rootAngle;
+    var segmentCount = arcSegments.length;
+    var arcSegment;
+    var arcSegmentStartAngle = arcState.startAngle;
+    var arcSegmentAngleSize;
+
+    var arcSegmentWidthUnitSize = arcState.arcLength / arcState.totalArcSegmentUnits;
 
     clearCanvas();
 
-    for (var i = 0; i < arcs.length; i++) {
-      arc = arcs[i];
-      drawArc(arcAspect.distFromCenter, arcAspect.width, currentRootAngle, arc.angleSpread, arc.color);
-      currentRootAngle = (currentRootAngle + arc.angleSpread) % 360;
+    for (var i = 0; i < segmentCount; i++) {
+      arcSegment = arcSegments[i];
+
+      arcSegmentAngleSize = arcSegment.sizeUnits * arcSegmentWidthUnitSize;
+
+      drawArcSegment(arcConfig.distanceFromCenter,
+                    arcConfig.thickness,
+                    arcSegmentStartAngle,
+                    arcSegmentAngleSize,
+                    arcSegment.color);
+
+      arcSegmentStartAngle = (arcSegmentStartAngle + arcSegmentAngleSize) % 360;
     }
 
-    // arcAspect.rootAngle += 0.1;
-    updateArcs();
+    updateArc();
   }
   
   
-  function drawArc(distanceFromCenter, width, rootAngle, angleSpread, color) {
+  function drawArcSegment(distanceFromCenter, thickness, angleToStartFrom, angleSpread, color) {
     var internalCircle = {}, outerCircle = {};
 
-    var targetAngle   = angleSpread === 360 ? rootAngle - 1 : (rootAngle + angleSpread) % 360
+    var targetAngle   = angleSpread === 360 ? angleToStartFrom - 1 : (angleToStartFrom + angleSpread) % 360
     , drawEndPoints   = false
     , drawClockCenter = false
     ;
 
     internalCircle.radius = distanceFromCenter;
-    internalCircle.start  = root.tb.getCoordsOnCircle(rootAngle, internalCircle.radius, center);
+    internalCircle.start  = root.tb.getCoordsOnCircle(angleToStartFrom, internalCircle.radius, center);
     internalCircle.end    = root.tb.getCoordsOnCircle(targetAngle, internalCircle.radius, center);
     
-    outerCircle.radius = distanceFromCenter + width;
-    outerCircle.start  = root.tb.getCoordsOnCircle(rootAngle, outerCircle.radius, center);
+    outerCircle.radius = distanceFromCenter + thickness;
+    outerCircle.start  = root.tb.getCoordsOnCircle(angleToStartFrom, outerCircle.radius, center);
     outerCircle.end    = root.tb.getCoordsOnCircle(targetAngle, outerCircle.radius, center);
 
-    var startAngle = ((Math.PI * 2) * rootAngle) / 360
-    , endAngle     = ((Math.PI * 2) * targetAngle) / 360
-    ;
+    var angle = {
+      start: ((Math.PI * 2) * angleToStartFrom) / 360,
+      end: ((Math.PI * 2) * targetAngle) / 360
+    }
     
     context.lineWidth = 1;
     context.strokeStyle = color;
     context.beginPath();
-    context.arc(center.x, center.y, internalCircle.radius, endAngle, startAngle, true); // from green to red
+    context.arc(center.x, center.y, internalCircle.radius, angle.end, angle.start, true); // from green to red
     context.lineTo(outerCircle.start.x, outerCircle.start.y); // -> teal
-    context.arc(center.x, center.y, outerCircle.radius, startAngle, endAngle, false); // from magenta to teal 
+    context.arc(center.x, center.y, outerCircle.radius, angle.start, angle.end, false); // from magenta to teal 
     context.moveTo(outerCircle.end.x, outerCircle.end.y); // -> magenta
     context.lineTo(internalCircle.end.x, internalCircle.end.y); // -> green
     context.closePath();
