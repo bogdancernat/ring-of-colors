@@ -20,17 +20,19 @@ var app = (function (root) {
   , pixelRatios = {}
   , arcConfig = {
     maxArcLength: 270,
-    minArcLength: 20,
+    minArcLength: 0,
     distanceFromCenter: 0,
     easing: root.tb.easing.easeInOutQuint,
     baseGrowthRate: 0.55,
     baseGrowthValue: 3,
+    animationDuration: 1500, // in ms
     distanceFromMargin: 0
   }
   , arcState = {
     startAngle: 270,
-    arcLength: 0,
+    arcLength: arcConfig.minArcLength,
     growing: true,
+    startTime: undefined, // in ms
     growthRate: arcConfig.baseGrowthRate,
     totalArcSegmentUnits: 0
   }
@@ -50,6 +52,7 @@ var app = (function (root) {
     addArcSegment(colors.yellow);
     addArcSegment(colors.yellowLighter);
 
+    arcState.startTime = new Date().getTime();
     x.animate();
     // draw();
   };
@@ -109,25 +112,40 @@ var app = (function (root) {
   }
 
   function updateArc() {
-    if (arcState.growing) {
-      arcState.arcLength += arcConfig.baseGrowthValue + arcState.growthRate;
-    } else {
-      arcState.arcLength -= arcConfig.baseGrowthValue + arcState.growthRate;
-      arcState.startAngle = (arcState.startAngle + arcConfig.baseGrowthValue + arcState.growthRate) % 360;
+    var now = new Date().getTime()
+    , timeEllapsed = now - arcState.startTime
+    , timeProgress = timeEllapsed / arcConfig.animationDuration
+    ;
+
+    if (!arcState.growing) {
+      timeProgress = 1 - timeProgress;
     }
 
-    if (arcState.arcLength > arcConfig.maxArcLength) {
-      arcState.growthRate = arcConfig.baseGrowthRate;
+    var arcLengthProgress = arcConfig.easing(timeProgress);
+    
+
+    var newArcLength = arcLengthProgress * arcConfig.maxArcLength;
+
+
+    if (!arcState.growing) {
+      // make the end of the arc stay still
+      arcState.startAngle = (arcState.startAngle + arcState.arcLength - newArcLength) % 360;
+    }
+    
+    arcState.arcLength = newArcLength;
+
+    if (arcState.arcLength >= arcConfig.maxArcLength) {
+      // arcState.growthRate = arcConfig.baseGrowthRate;
       arcState.growing = false;
+      arcState.startTime = new Date().getTime();
     }
 
-    if (arcState.arcLength < arcConfig.minArcLength) {
-      arcState.growthRate = arcConfig.baseGrowthRate;
+    if (arcState.arcLength <= arcConfig.minArcLength) {
+      // arcState.growthRate = arcConfig.baseGrowthRate;
       arcState.arcLength  = arcConfig.minArcLength;
       arcState.growing    = true;
+      arcState.startTime = new Date().getTime();
     }
-
-    arcState.growthRate = arcConfig.easing(arcState.growthRate);
   }
 
   function draw() {
@@ -135,7 +153,6 @@ var app = (function (root) {
     var arcSegment;
     var arcSegmentStartAngle = arcState.startAngle;
     var arcSegmentAngleSize;
-
     var arcSegmentWidthUnitSize = arcState.arcLength / arcState.totalArcSegmentUnits;
 
     clearCanvas();
