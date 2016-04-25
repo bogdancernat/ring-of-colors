@@ -5,8 +5,28 @@
 @import "normalize-scss/_normalize.scss";
 
 $background-color: #1f1f34;
+$spinner-size: 380px;
+$element-height: $spinner-size / 2;
+$spinner-hole-size: $spinner-size * 0.33333;
 
+// colors
+$darker-blue: #21285a;
+$blue: #4363fe;
+$purple: #6a52cd;
+$red: #ff635a;
+$orange: #ff8d63;
+$yellow: #ffff63;
+$yellow-lighter: #ffff95;
+$white: #fff;
 
 body {
   background: $background-color;
+}
+
+#spinner-wrapper {
+  @include size(100vw 100vh);
+}
+
+canvas {
+  display: block;
 }
